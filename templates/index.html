@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Мои заметки</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <h1>Мои заметки</h1>
+    <p>Добавьте запись. Она сохранится в PostgreSQL.</p>
+    <form id="note-form">
+      <label for="note-text">Текст заметки</label>
+      <textarea id="note-text" maxlength="500" required></textarea>
+      <button type="submit">Добавить</button>
+    </form>
+    <p id="message" role="status"></p>
+    <h2>Сохранённые записи</h2>
+    <ul id="notes"></ul>
+  </main>
+</body>
+</html>

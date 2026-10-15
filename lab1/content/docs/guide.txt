@@ -1,0 +1,2 @@
+LAB1_DOCS_FILE
+This file is served with alias.

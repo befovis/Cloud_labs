@@ -1,0 +1,53 @@
+Local nginx lab; mode=normal; UTC=2026-10-15T01:00:17Z
+TLS is checked with --cacert; --insecure is not used.
+PASS: HTTP to HTTPS: HTTP 301
+PASS: Location: https://notes.test/
+PASS: Second host redirects to HTTPS: HTTP 301
+PASS: Second host Location
+PASS: HTTPS frontend: HTTP 200
+PASS: Notes frontend marker
+PASS: Frontend response has X-Site and no backend ID
+API request 1: HTTP 200, X-Backend-ID=backend-1
+API request 2: HTTP 200, X-Backend-ID=backend-1
+API request 3: HTTP 200, X-Backend-ID=backend-2
+API request 4: HTTP 200, X-Backend-ID=backend-1
+API request 5: HTTP 200, X-Backend-ID=backend-2
+API request 6: HTTP 200, X-Backend-ID=backend-1
+API request 7: HTTP 200, X-Backend-ID=backend-2
+API request 8: HTTP 200, X-Backend-ID=backend-1
+API request 9: HTTP 200, X-Backend-ID=backend-2
+API request 10: HTTP 200, X-Backend-ID=backend-1
+PASS: Both backend IDs observed
+PASS: Read notes from the shared database: HTTP 200
+PASS: nginx serves CSS: HTTP 200
+PASS: CSS MIME type
+PASS: Canonical /docs/ path: HTTP 301
+PASS: alias directory: HTTP 200
+PASS: alias content
+PASS: File from alias directory: HTTP 200
+PASS: alias file marker
+PASS: Basic Auth without credentials: /admin: HTTP 401
+PASS: WWW-Authenticate header: /admin
+PASS: Basic Auth without credentials: /admin/: HTTP 401
+PASS: WWW-Authenticate header: /admin/
+PASS: Basic Auth without credentials: /admin/index.html: HTTP 401
+PASS: WWW-Authenticate header: /admin/index.html
+PASS: Second virtual host: HTTP 200
+PASS: Second-project content
+PASS: No notes-project content on second.test
+PASS: Second host does not proxy the notes API: HTTP 404
+PASS: Known alternative Host with notes.test TLS SNI: HTTP 200
+PASS: Host selects only the second project
+PASS: Alternative Host does not leak notes
+PASS: Unknown Host with valid notes.test TLS SNI: HTTP 421
+PASS: Unknown Host does not leak notes
+PASS: Unknown Host does not leak second
+PASS: Unknown HTTP virtual host: HTTP 421
+PASS: Custom 404 retains the 404 status: HTTP 404
+PASS: Our custom 404 body
+Finite local rate test: 40 requests, at most 8 at once.
+     14 200
+     26 429
+PASS: limit_req returned 429
+PASS: Rate-test statuses are only 200 and 429
+RESULT: PASS=37 FAIL=0

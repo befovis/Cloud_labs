@@ -1,0 +1,6 @@
+nohup: ignoring input
+[2026-10-15 04:00:04 +0300] [1222] [INFO] Starting gunicorn 26.2.0
+[2026-10-15 04:00:04 +0300] [1222] [INFO] Listening at: http://127.0.0.1:5002 (1222)
+[2026-10-15 04:00:04 +0300] [1222] [INFO] Using worker: gthread
+[2026-10-15 04:00:04 +0300] [1223] [INFO] Booting worker with pid: 1223
+[2026-10-15 04:00:04 +0300] [1222] [INFO] Control socket listening at /run/user/1000/gunicorn.ctl

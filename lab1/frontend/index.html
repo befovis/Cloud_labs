@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <!-- LAB1_NOTES_PROJECT -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Мои заметки</title>
+  <link rel="stylesheet"
+        href="/static/style.css">
+  <script src="/static/app.js"
+          defer></script>
+</head>
+<body>
+  <main class="container">
+    <header>
+      <p class="eyebrow">Лабораторная работа 1 · nginx</p>
+      <h1>Мои заметки</h1>
+      <p class="intro">Сохраните мысль и вернитесь к ней позже.</p>
+      <p id="backend" class="muted">Ожидаем ответ API…</p>
+    </header>
+
+    <section class="panel" aria-labelledby="new-title">
+      <h2 id="new-title">Новая заметка</h2>
+      <form id="note-form">
+        <label for="note-text">Текст заметки</label>
+        <textarea id="note-text" name="text" rows="4"
+                  maxlength="500" required
+                  aria-describedby="text-hint"
+                  placeholder="Что хочется запомнить?"></textarea>
+        <div class="form-bottom">
+          <span id="text-hint">От 1 до 500 символов</span>
+          <button id="save-button" type="submit">Сохранить</button>
+        </div>
+      </form>
+      <p id="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="panel" aria-labelledby="list-title">
+      <div class="list-heading">
+        <h2 id="list-title">Сохранённые заметки</h2>
+        <button id="refresh-button" type="button"
+                class="secondary">Обновить список</button>
+      </div>
+      <p id="counter" class="muted">Загрузка…</p>
+      <p id="empty" class="muted" hidden>Пока нет заметок.</p>
+      <ul id="notes"></ul>
+    </section>
+  </main>
+</body>
+</html>

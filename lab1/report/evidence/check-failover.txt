@@ -1,0 +1,18 @@
+Local nginx lab; mode=failover; UTC=2026-10-15T00:57:03Z
+TLS is checked with --cacert; --insecure is not used.
+PASS: HTTPS frontend: HTTP 200
+PASS: Notes frontend marker
+PASS: Frontend response has X-Site and no backend ID
+API request 1: HTTP 200, X-Backend-ID=backend-1
+API request 2: HTTP 200, X-Backend-ID=backend-1
+API request 3: HTTP 200, X-Backend-ID=backend-1
+API request 4: HTTP 200, X-Backend-ID=backend-1
+API request 5: HTTP 200, X-Backend-ID=backend-1
+API request 6: HTTP 200, X-Backend-ID=backend-1
+API request 7: HTTP 200, X-Backend-ID=backend-1
+API request 8: HTTP 200, X-Backend-ID=backend-1
+API request 9: HTTP 200, X-Backend-ID=backend-1
+API request 10: HTTP 200, X-Backend-ID=backend-1
+Expected only the surviving instance: backend-1
+PASS: Read notes from the shared database: HTTP 200
+RESULT: PASS=4 FAIL=0

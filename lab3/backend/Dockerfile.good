@@ -1,0 +1,43 @@
+# syntax=docker/dockerfile:1
+
+# ---- Этап сборки: ставим зависимости отдельно от финального образа ----
+# FIX: зафиксированная версия базового образа вместо "latest".
+FROM python:3.13.0-slim AS builder
+WORKDIR /app
+
+# FIX: requirements.txt копируется и устанавливается ДО остального кода —
+# пока он не меняется, Docker переиспользует этот слой из кеша.
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# ---- Финальный этап: только то, что нужно для запуска ----
+FROM python:3.13.0-slim
+WORKDIR /app
+
+# FIX: отдельный непривилегированный пользователь вместо root.
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+# Берём уже собранные зависимости из builder-стадии — build-инструментов
+# и pip-кеша в финальном образе нет (FIX: multi-stage build).
+COPY --from=builder /install /usr/local
+
+# Код приложения копируется последним — после зависимостей, что сохраняет
+# кеш слоя с pip install при правках app.py.
+COPY app.py entrypoint.sh ./
+RUN chmod +x entrypoint.sh && chown -R appuser:appuser /app
+
+# FIX: секрет (DB_PASSWORD) больше не зашит в образ — он приходит
+# в контейнер из окружения docker compose / CI secrets.
+
+USER appuser
+EXPOSE 5000
+
+# FIX: HEALTHCHECK, который бьёт в /api/health (эндпоинт приложения,
+# заодно проверяет доступность БД).
+HEALTHCHECK --interval=15s --timeout=3s --start-period=10s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/api/health', timeout=2)" || exit 1
+
+# FIX: приложение обслуживается gunicorn (несколько воркеров), а не
+# однопоточным dev-сервером flask run — см. entrypoint.sh.
+
+ENTRYPOINT ["./entrypoint.sh"]

@@ -1,0 +1,25 @@
+# BAD PRACTICE 1: нефиксированный тег "latest" — размер и поведение базового
+# образа может измениться в любой момент, сборка невоспроизводима.
+FROM python:latest
+
+# BAD PRACTICE 2: секрет зашит прямо в слой образа. Любой, у кого есть образ
+# (docker history, docker save), может прочитать пароль от БД.
+ENV DB_PASSWORD=supersecret123
+
+WORKDIR /app
+
+# BAD PRACTICE 3: весь контекст копируется ДО установки зависимостей и без
+# .dockerignore — ломает кеш слоёв (любое изменение кода пересобирает
+# pip install заново) и тащит в образ .venv/.git/прочий мусор из контекста.
+COPY . .
+RUN pip install -r requirements.txt
+
+# BAD PRACTICE 4: нет USER — процесс в контейнере работает от root.
+# BAD PRACTICE 5: нет HEALTHCHECK — Docker не знает, жив ли сервис.
+# BAD PRACTICE 6: однослойная сборка — build-инструменты и pip-кеш остаются
+# в финальном образе (нет multi-stage).
+# BAD PRACTICE 7: в "продакшене" запущен встроенный dev-сервер Flask
+# (однопоточный, без ограничения воркеров) вместо gunicorn, хотя он уже
+# есть в requirements.txt.
+
+CMD ["sh", "-c", "flask --app app init-db && flask --app app run --host 0.0.0.0 --port 5000"]

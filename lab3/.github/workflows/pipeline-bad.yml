@@ -1,0 +1,46 @@
+name: pipeline-bad
+
+on:
+  push:
+    branches: ["bad-pipeline-demo"]
+  workflow_dispatch: {}
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # BAD PRACTICE 1: экшены не зафиксированы по версии — @master/@latest
+      # может притащить несовместимые или вредоносные изменения без предупреждения.
+      - uses: actions/checkout@master
+
+      # BAD PRACTICE 2: нет этапа lint/test — сломанный код едет дальше как есть.
+      # (сравни с pipeline-good.yml, где job "test" блокирует всё остальное)
+
+      - name: Build image
+        # BAD PRACTICE 3: секрет пароля базы прямо в yaml, в открытом виде.
+        # Именно так Вася в своё время закоммитил пароль в репозиторий:
+        # https://habr.com/ru/articles/689234/
+        run: |
+          docker build \
+            -f backend/Dockerfile.good \
+            -t ghcr.io/${{ github.repository_owner }}/lab-backend:latest \
+            --build-arg DB_PASSWORD=supersecret123 \
+            ./backend
+
+      # BAD PRACTICE 4: нет кеширования слоёв/зависимостей — каждый прогон
+      # пересобирает всё с нуля, долго и расточительно по CI-минутам.
+
+      # BAD PRACTICE 5: нет сканирования образа (Trivy) — уязвимости
+      # в базовом образе или зависимостях просто уезжают в прод.
+
+      - name: Push
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          # BAD PRACTICE 6: всегда только тег :latest — нет версии по SHA,
+          # значит откатиться на предыдущий образ будет нечем.
+          docker push ghcr.io/${{ github.repository_owner }}/lab-backend:latest
+
+      - name: "Deploy (no verification)"
+        run: echo "Deployed ghcr.io/${{ github.repository_owner }}/lab-backend:latest"
+        # BAD PRACTICE 7: пайплайн считается успешным, даже если сервис
+        # после деплоя не отвечает — нет финального curl / проверки здоровья.

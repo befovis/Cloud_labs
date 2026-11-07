@@ -25,18 +25,18 @@ jobs:
         with:
           python-version: "3.13"
           cache: "pip"
-          cache-dependency-path: backend/requirements-dev.txt
+          cache-dependency-path: lab3/backend/requirements-dev.txt
 
       - name: Install dependencies
-        working-directory: backend
+        working-directory: lab3/backend
         run: pip install -r requirements-dev.txt
 
       - name: Lint (ruff)
-        working-directory: backend
+        working-directory: lab3/backend
         run: ruff check .
 
       - name: Unit tests (pytest)
-        working-directory: backend
+        working-directory: lab3/backend
         env:
           PYTHONPATH: "."
         run: pytest -v
@@ -60,8 +60,8 @@ jobs:
       - name: Build (local, for scanning — not pushed yet)
         uses: docker/build-push-action@v6
         with:
-          context: ./backend
-          file: ./backend/Dockerfile.good
+          context: ./lab3/backend
+          file: ./lab3/backend/Dockerfile.good
           tags: ${{ steps.tag.outputs.image_tag }}
           load: true
           cache-from: type=gha
@@ -103,7 +103,7 @@ jobs:
 
       - name: Write .env for compose
         run: |
-          cat <<EOF > .env
+          cat <<EOF > lab3/.env
           DB_NAME=${{ vars.DB_NAME || 'lab0_notes' }}
           DB_USER=${{ vars.DB_USER || 'lab0_user' }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
@@ -111,7 +111,7 @@ jobs:
           EOF
 
       - name: Deploy stack
-        run: docker compose -f docker-compose.ci.yml --env-file .env up -d --build
+        run: docker compose -f lab3/docker-compose.ci.yml --env-file lab3/.env up -d --build
 
       - name: Wait for the service to answer
         run: |
@@ -123,7 +123,7 @@ jobs:
             sleep 3
           done
           echo "Service never became healthy" >&2
-          docker compose -f docker-compose.ci.yml logs
+          docker compose -f lab3/docker-compose.ci.yml logs
           exit 1
 
       - name: Prove the deployed service is alive
@@ -131,4 +131,4 @@ jobs:
 
       - name: Tear down
         if: always()
-        run: docker compose -f docker-compose.ci.yml down -v
+        run: docker compose -f lab3/docker-compose.ci.yml down -v

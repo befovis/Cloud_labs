@@ -22,10 +22,10 @@ jobs:
         # https://habr.com/ru/articles/689234/
         run: |
           docker build \
-            -f backend/Dockerfile.good \
+            -f lab3/backend/Dockerfile.good \
             -t ghcr.io/${{ github.repository_owner }}/lab-backend:latest \
             --build-arg DB_PASSWORD=supersecret123 \
-            ./backend
+            ./lab3/backend
 
       # BAD PRACTICE 4: нет кеширования слоёв/зависимостей — каждый прогон
       # пересобирает всё с нуля, долго и расточительно по CI-минутам.

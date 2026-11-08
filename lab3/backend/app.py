@@ -2,9 +2,9 @@ import os
 from pathlib import Path
 
 import click
-import psycopg
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request
+import psycopg
 from psycopg.rows import dict_row
 
 

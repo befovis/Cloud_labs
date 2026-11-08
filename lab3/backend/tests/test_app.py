@@ -1,9 +1,8 @@
-import os
-
 from conftest import make_note_row
 
 
 # --- validation happens before any DB call, so no fake_db needed here ---
+
 
 def test_create_note_rejects_missing_text(client):
     response = client.post("/api/notes", json={})
@@ -45,6 +44,7 @@ def test_unknown_api_route_returns_json_404(client):
 
 # --- these exercise the success paths with a fake DB connection ---
 
+
 def test_create_note_success(client, fake_db):
     fake_db._one = make_note_row(note_id=1, text="hello")
     response = client.post("/api/notes", json={"text": "hello"})
@@ -56,7 +56,10 @@ def test_create_note_success(client, fake_db):
 
 
 def test_list_notes_returns_serialized_rows(client, fake_db):
-    fake_db._rows = [make_note_row(note_id=2, text="второй"), make_note_row(note_id=1, text="первый")]
+    fake_db._rows = [
+        make_note_row(note_id=2, text="второй"),
+        make_note_row(note_id=1, text="первый"),
+    ]
     response = client.get("/api/notes")
     assert response.status_code == 200
     body = response.get_json()

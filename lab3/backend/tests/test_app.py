@@ -1,6 +1,5 @@
 from conftest import make_note_row
 
-
 # --- validation happens before any DB call, so no fake_db needed here ---
 
 

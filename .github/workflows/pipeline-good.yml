@@ -1,3 +1,4 @@
+
 name: pipeline-good
 
 on:
@@ -14,7 +15,8 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------
-  # 1) Проверка кода. Если тесты/линт падают — дальше пайплайн не идёт.
+  # 1) Проверка кода.
+  # Если тесты/линт падают — дальше пайплайн не идёт.
   # ---------------------------------------------------------------------
   test:
     runs-on: ubuntu-latest
@@ -42,7 +44,8 @@ jobs:
         run: pytest -v
 
   # ---------------------------------------------------------------------
-  # 2) Сборка образа, скан на уязвимости, публикация — только после теста.
+  # 2) Сборка образа, сканирование и публикация.
+  # Только после успешного тестирования.
   # ---------------------------------------------------------------------
   build-scan-push:
     needs: test
@@ -68,9 +71,6 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Scan image (Trivy)
-        # v0.36.0 — после supply-chain атаки в марте 2026 (force-push тегов
-        # 0.0.1–0.34.2) проект перешёл на теги с префиксом "v"; это текущая
-        # safe-версия.
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ steps.tag.outputs.image_tag }}
@@ -89,7 +89,7 @@ jobs:
         run: docker push ${{ steps.tag.outputs.image_tag }}
 
   # ---------------------------------------------------------------------
-  # 3) Деплой уже просканированного образа и проверка живого сервиса.
+  # 3) Деплой образа и проверка работающего сервиса.
   # ---------------------------------------------------------------------
   deploy-verify:
     needs: build-scan-push
@@ -116,6 +116,13 @@ jobs:
       - name: Deploy stack
         run: docker compose -f lab3/docker-compose.ci.yml --env-file lab3/.env up -d --build
 
+      # Новый шаг: вывод логов PostgreSQL при ошибке
+      - name: Show PostgreSQL logs on failure
+        if: failure()
+        run: |
+          echo "=== PostgreSQL logs ==="
+          docker logs lab3-db-1
+
       - name: Wait for the service to answer
         run: |
           for i in $(seq 1 20); do
@@ -132,6 +139,7 @@ jobs:
       - name: Prove the deployed service is alive
         run: curl -s http://127.0.0.1:8080/api/notes
 
+      # Очистка выполняется даже при ошибке
       - name: Tear down
         if: always()
         run: docker compose -f lab3/docker-compose.ci.yml down -v

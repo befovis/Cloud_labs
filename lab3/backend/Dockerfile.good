@@ -2,7 +2,13 @@
 
 # ---- Этап сборки: ставим зависимости отдельно от финального образа ----
 # FIX: зафиксированная версия базового образа вместо "latest".
-FROM python:3.13.0-slim AS builder
+# Важно: "python:3.13.0-slim" (с точным патчем) — это замороженный тег,
+# Docker никогда не обновляет его пакеты ОС задним числом, поэтому со
+# временем в нём накапливаются неисправленные CVE (это и поймал Trivy).
+# "python:3.13-slim-bookworm" держит тот же Debian 12, но Docker продолжает
+# пересобирать этот тег с патчами безопасности — баланс между
+# воспроизводимостью и актуальностью патчей.
+FROM python:3.13-slim-bookworm AS builder
 WORKDIR /app
 
 # FIX: requirements.txt копируется и устанавливается ДО остального кода —
@@ -11,7 +17,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 # ---- Финальный этап: только то, что нужно для запуска ----
-FROM python:3.13.0-slim
+FROM python:3.13-slim-bookworm
 WORKDIR /app
 
 # FIX: отдельный непривилегированный пользователь вместо root.

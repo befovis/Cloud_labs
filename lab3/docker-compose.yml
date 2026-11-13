@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME}
     volumes:
-      - db_data:/var/lib/postgresql/data
+      - db_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
@@ -14,26 +14,24 @@ services:
       retries: 10
     networks:
       - backend-net
-    # Порт не публикуется наружу — к базе обращается только backend.
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.good
+    # Деплой использует уже собранный, просканированный и запушенный в CI
+    # образ — а не пересобирает код заново на этапе деплоя.
+    image: ${BACKEND_IMAGE}
     environment:
       DB_HOST: db
       DB_PORT: "5432"
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
-      INSTANCE_ID: backend-1
+      INSTANCE_ID: ${BACKEND_IMAGE}
     depends_on:
       db:
         condition: service_healthy
     networks:
       - backend-net
       - frontend-net
-    # Порт тоже не публикуется — снаружи к backend обращается только nginx.
 
   frontend:
     build:
@@ -44,8 +42,6 @@ services:
       - backend
     networks:
       - frontend-net
-      # Важно: frontend НЕ подключён к backend-net, поэтому у него нет
-      # сетевого пути до db — ни по имени, ни по IP.
 
 volumes:
   db_data:

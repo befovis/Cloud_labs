@@ -1,85 +1,91 @@
-# Лабораторная работа 3 — CI/CD
+# Лабораторная работа № 3. CI/CD
 
-Два пайплайна на GitHub Actions поверх образа из лабы 2:
+## Цель работы
 
-- `.github/workflows/pipeline-bad.yml` — рабочий, но с 7 антипаттернами (см.
-  комментарии в файле): секрет в yaml (привет Васе —
-  https://habr.com/ru/articles/689234/), непинованные экшены, тег только
-  `:latest`, нет lint/test, нет кеша, нет Trivy, нет проверки после деплоя.
-- `.github/workflows/pipeline-good.yml` — три job'а: `test` → `build-scan-push`
-  → `deploy-verify`. Падение на любом этапе останавливает всё, что после него.
+Настроить CI/CD для сервиса заметок из лабораторных № 0 и № 2. Проверки кода и образа должны блокировать публикацию при ошибке. После успешных проверок пайплайн публикует образ, запускает стек и проверяет API.
 
-## Разовая настройка репозитория (один раз, до первого запуска)
+## Устройство пайплайнов
 
-1. Запушить этот код в GitHub-репозиторий (обычным `main`).
-2. **Settings → Secrets and variables → Actions → New repository secret**:
-   добавить `DB_PASSWORD` (настоящий пароль для тестового Postgres в CI —
-   не тот, что в `.env` локально, можно любой, но не `CHANGE_ME`).
-3. (не обязательно) Там же, вкладка **Variables** — `DB_NAME`, `DB_USER`,
-   если хочется не дефолтные `lab0_notes` / `lab0_user`.
-4. GHCR: ничего отдельно настраивать не надо — пайплайн логинится
-   встроенным `GITHUB_TOKEN`. После первого пуша образа зайти в
-   **Packages** репозитория и проверить, что `lab-backend` появился
-   (по умолчанию пакет приватный — это нормально, пайплайну хватает прав).
+Исходные файлы — [pipeline-bad.yml](../.github/workflows/pipeline-bad.yml), [pipeline-good.yml](../.github/workflows/pipeline-good.yml), [Dockerfile бэкенда](backend/Dockerfile.good) и [Compose для CI](docker-compose.ci.yml). В lab3 используется та же двухэтапная схема сборки бэкенда, что и в [lab2](../lab2/README.md), с обновлённым базовым образом.
 
-## Демонстрация 1 — пайплайн ловит плохой код
+| Практика | `pipeline-bad` | `pipeline-good` |
+| --- | --- | --- |
+| Версии | `actions/checkout@master` зависит от текущего состояния ветки | У Actions указаны теги версий, например `checkout@v4`, `build-push-action@v6` и `trivy-action@v0.36.0`. База Python указана тегом `3.13-slim-bookworm` |
+| Проверка кода | Нет lint и unit-тестов | `test` запускает Ruff и pytest. Сборка зависит от успешного `test` |
+| Пароль БД | Демонстрационное значение прописано в YAML как аргумент сборки | `deploy-verify` получает пароль из `secrets.DB_PASSWORD` и передаёт его Compose при запуске |
+| Кеш | Между прогонами кеш не сохраняется | `setup-python` кеширует зависимости pip, Buildx читает и сохраняет слои через `type=gha` |
+| Сканирование | Шаг публикации выполняется без сканирования | Trivy выводит `HIGH` и `CRITICAL` отдельным отчётом. Проверка `CRITICAL` блокирует публикацию при наличии исправляемых критических находок |
+| Тег образа | В шаге публикации указан только `:latest` | Тег содержит SHA коммита, по нему можно выбрать образ конкретной сборки |
+| Деплой | Шаг выводит сообщение о деплое | Compose поднимает стек из опубликованного образа. Пайплайн проверяет `/api/health` и `/api/notes` |
 
-1. Сломать тест или добавить ошибку lint, например в
-   `backend/tests/test_app.py` поменять `assert response.status_code == 400`
-   на `== 200` в любом из тестов валидации.
-2. Закоммитить и запушить в `main`.
-3. В Actions — job `test` красный, `build-scan-push` и `deploy-verify` не
-   запускались вовсе (видно по "skipped"). Скриншот этого — в отчёт.
-4. Откатить изменение, запушить снова — `test` зелёный, пайплайн идёт дальше.
+Хороший workflow запускается при push в `main` или вручную. Последовательность задана через `needs`: `test` → `build-scan-push` → `deploy-verify`. Результаты демонстраций ниже получены в форке `mashaolesina/Cloud_labs`. Коммиты и скриншоты вошли в основной репозиторий через [PR № 1](https://github.com/befovis/Cloud_labs/pull/1).
 
-## Демонстрация 2 — security-gate (Trivy) реально работает
+## 1. Ошибка lint блокирует деплой
 
-1. Временно поменять в `backend/Dockerfile.good` первую строку второго этапа
-   (`FROM python:3.13.0-slim`, обе строки — в builder и в финальном этапе)
-   на `FROM python:3.13` (полный, "жирный" образ на Debian).
-2. Закоммитить, запушить — в job `build-scan-push` шаг **Scan image (Trivy)**
-   упадёт: в выводе будет таблица CVE с CRITICAL/HIGH по пакетам из полного
-   Debian-образа. Push в GHCR не произойдёт — шаг стоит после скана.
-3. Скриншот красного скана + таблицу Trivy (сколько CRITICAL/HIGH было) —
-   в отчёт.
-4. Вернуть `python:3.13.0-slim` обратно, запушить — скан должен позеленеть.
-   Сюда же в отчёт: таблицу "было/стало" по severity и что именно почините
-   (в данном случае — просто меньше пакетов в slim-образе, меньше
-   поверхность CVE). Если что-то осталось — объяснить почему (так бывает).
+В коммите `8470592` в `lab3/backend/app.py` добавили неиспользуемый импорт `nonexistent_module_for_ci_test`. Ruff выдал `F401` и завершился с кодом `1`. GitHub Actions пропустил pytest, `build-scan-push` и `deploy-verify`. Импорт удалили в `4bc940a`, после чего прогон прошёл успешно. [Красный прогон](https://github.com/mashaolesina/Cloud_labs/actions/runs/43436796434) · [Прогон после удаления импорта](https://github.com/mashaolesina/Cloud_labs/actions/runs/43436969294)
 
-## Демонстрация 3 — хороший код доезжает сам
+![Падение test и пропуск сборки и деплоя](screenshots/lint_problem.png)
 
-После демонстрации 2 с откаченным slim-образом и зелёными `test` +
-`build-scan-push`, job `deploy-verify`:
-- поднимает `docker-compose.ci.yml` (бэкенд — только что просканированный и
-  запушенный образ по тегу `${{ github.sha }}`, фронт собирается на месте,
-  база — чистый Postgres);
-- ждёт, пока `/api/health` ответит (до 60 секунд);
-- делает `curl http://127.0.0.1:8080/api/notes` — это и есть доказательство,
-  что задеплоенный сервис живой.
+![Ruff остановил прогон с ошибкой F401](screenshots/lint_mistake.png)
 
-Скриншот зелёного `deploy-verify` с выводом этого `curl` — в отчёт.
+## 2. Trivy блокирует публикацию образа
 
-## Что ещё взять в отчёт
+Оба этапа сборки сначала использовали `python:3.13.0-slim-bookworm`. Trivy определил Debian 12.8, нашёл семь исправляемых уязвимостей уровня `CRITICAL` и завершил проверку кодом `1`. Шаги входа в GHCR, публикации и деплоя были пропущены. Затем в обоих этапах базу обновили до `python:3.13-slim-bookworm`. В повторном прогоне Trivy определил Debian 12.15 и пропустил образ к публикации. [Заблокированный скан](https://github.com/mashaolesina/Cloud_labs/actions/runs/43438244715/job/131928916735) · [Скан после обновления](https://github.com/mashaolesina/Cloud_labs/actions/runs/43439539804/job/131933353341)
 
-- Оба файла пайплайнов целиком, с разбором практик (таблица ниже).
-- Скрин красного прогона (демонстрация 1).
-- Таблица Trivy до/после (демонстрация 2).
-- Скрин зелёного прогона + вывод `curl` (демонстрация 3).
+| Цель сканирования | HIGH до | CRITICAL до | HIGH после | CRITICAL после |
+| --- | ---: | ---: | ---: | ---: |
+| Debian | 41 | 7 | 0 | 0 |
+| Пакеты Python | 0 | 0 | 5 | 0 |
+| **Всего** | **41** | **7** | **5** | **0** |
 
-| # | Плохая практика (`pipeline-bad.yml`)                         | Как исправлено (`pipeline-good.yml`)                                |
-|---|----------------------------------------------------------------|--------------------------------------------------------------------|
-| 1 | `actions/checkout@master` — непредсказуемая версия экшена      | Все экшены на зафиксированных версиях (`@v4`, `@v6`, `@0.29.0`)     |
-| 2 | Нет этапа lint/test                                             | Отдельный job `test`: `ruff check` + `pytest`, блокирует всё остальное |
-| 3 | `--build-arg DB_PASSWORD=supersecret123` — секрет в открытом yaml | Пароль идёт из `secrets.DB_PASSWORD`, в самом файле пайплайна его нет |
-| 4 | Нет кеша — каждый прогон собирает всё с нуля                   | `cache: pip` для зависимостей, `cache-from/to: type=gha` для слоёв Docker |
-| 5 | Нет сканирования образа                                         | Job `build-scan-push` гонит `aquasecurity/trivy-action`, `exit-code: 1` на CRITICAL |
-| 6 | Только тег `:latest` — нечем откатиться                        | Тег по `github.sha` — у каждого прогона свой неизменяемый образ     |
-| 7 | "Deploy" без проверки — зелёный, даже если сервис не отвечает   | `deploy-verify` ждёт `/api/health` и доказывает живость через `curl` |
+Сканирование выполнялось с `ignore-unfixed: true`. После обновления базового образа Trivy нашёл пять уязвимостей `HIGH` в `msgpack`, `setuptools` и `urllib3`. Эксперимент ограничивался обновлением базового образа. Блокирующая проверка настроена на `CRITICAL`.
 
-## Примечание про секреты в демо-пайплайне
+[Скриншот блокирующего скана](<screenshots/Scan_Image_(Trivy).png>) · [Сводка HIGH и CRITICAL до обновления](screenshots/high_and_critical_bad.png) · [Сводка по пакетам Python после обновления](screenshots/high_and_critical_good.png)
 
-`pipeline-bad.yml` специально запускается только вручную или из отдельной
-ветки `bad-pipeline-demo` (а не из `main`) — чтобы заведомо плохой пайплайн
-не мешал реальному CI репозитория. Пароль там захардкожен нарочно, в
-демонстрационных целях; реальным паролем из секретов он не является.
+## 3. Успешный деплой и проверка API
+
+После обновления базы прогон на коммите `82fc9df` прошёл все три этапа. Бэкенд был опубликован в GHCR с тегом коммита. `deploy-verify` поднял из него бэкенд, собрал frontend и запустил PostgreSQL на runner GitHub Actions. В логе сначала появился ответ проверки готовности, затем пустой список заметок из новой базы. В конце прогона стек удалён шагом `Tear down`. [Зелёный прогон после обновления](https://github.com/mashaolesina/Cloud_labs/actions/runs/43439539804) · [Лог деплоя и curl](https://github.com/mashaolesina/Cloud_labs/actions/runs/43439539804/job/131933840641)
+
+```text
+GET /api/health → {"database":"ok","status":"ok"}
+curl -s http://127.0.0.1:8080/api/notes
+[]
+```
+
+Скриншоты показывают результаты более раннего успешного прогона № 12. [Прогон № 12](https://github.com/mashaolesina/Cloud_labs/actions/runs/43435232380)
+
+![Успешный прогон pipeline-good](screenshots/good.png)
+
+![Финальный curl вернул пустой JSON-массив](screenshots/server_is_alive.png)
+
+## Локальное воспроизведение
+
+Из корня репозитория установите зависимости и запустите Ruff и pytest.
+
+```sh
+python3 -m venv lab3/.venv
+lab3/.venv/bin/python -m pip install -r lab3/backend/requirements-dev.txt
+(
+  cd lab3/backend
+  ../.venv/bin/ruff check .
+  PYTHONPATH=. ../.venv/bin/python -m pytest -q
+)
+```
+
+Для запуска приложения через Docker Compose подготовьте `lab3/.env` по образцу [.env.example](.env.example).
+
+```sh
+test -f lab3/.env || cp lab3/.env.example lab3/.env
+```
+
+Укажите локальный пароль PostgreSQL вместо `CHANGE_ME` в `lab3/.env`, затем соберите и запустите стек.
+
+```sh
+docker build -f lab3/backend/Dockerfile.good -t cloud-labs-lab3-backend:local lab3/backend
+export BACKEND_IMAGE=cloud-labs-lab3-backend:local
+docker compose -p cloud-labs-lab3 -f lab3/docker-compose.yml --env-file lab3/.env up -d --build --wait
+curl -fsS http://127.0.0.1:8080/api/health
+curl -fsS http://127.0.0.1:8080/api/notes
+```
+
+Интерфейс доступен на <http://127.0.0.1:8080>.

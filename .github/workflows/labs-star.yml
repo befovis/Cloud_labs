@@ -1,0 +1,49 @@
+name: Дополнительные задания
+
+on:
+  pull_request:
+    paths:
+      - 'lab1/star/**'
+      - 'lab2/star/**'
+      - 'lab3/star/**'
+      - '.github/workflows/labs-star.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  nginx:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 lab1/star/audit.py
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Восстановление БД и лимиты
+        run: |
+          set -o pipefail
+          python3 -u lab2/star/run.py 2>&1 | tee lab2-star.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lab2-star
+          path: lab2-star.log
+
+  rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Неудачный релиз и откат
+        run: |
+          set -o pipefail
+          python3 -u lab3/star/manage.py demo 2>&1 | tee lab3-star.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lab3-star
+          path: lab3-star.log

@@ -1,0 +1,30 @@
+services:
+  db:
+    restart: unless-stopped
+    cpus: 0.5
+    mem_limit: 512m
+    memswap_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -h 127.0.0.1 -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 2s
+
+  backend:
+    cpus: "${LAB2_CPU:-1.0}"
+    mem_limit: "${LAB2_MEMORY:-512m}"
+    memswap_limit: "${LAB2_MEMORY:-512m}"
+    volumes:
+      - ./star/load_app.py:/app/load_app.py:ro
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        flask --app app init-db
+        exec gunicorn --bind 0.0.0.0:5000 --workers 2 --timeout 60 --access-logfile - load_app:app
+
+  frontend:
+    cpus: 0.5
+    mem_limit: 64m
+    memswap_limit: 64m
+    ports: !override
+      - target: 80
+        host_ip: 127.0.0.1

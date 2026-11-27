@@ -1,0 +1,5 @@
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+
+COPY fault.py /app/fault.py
+ENTRYPOINT ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "fault:app"]
